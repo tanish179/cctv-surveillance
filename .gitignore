@@ -1,0 +1,16 @@
+# Environment & secrets
+backend/.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.pt
+temp_*.mp4
+
+# Node
+frontend/node_modules/
+frontend/dist/
+
+# OS
+.DS_Store
+Thumbs.db

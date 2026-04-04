@@ -1,12 +1,88 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="dark">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <link rel="icon" type="image/png" href="/logo.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Suraksha AI Dashboard</title>
+    <meta name="description" content="Suraksha AI — Intelligent CCTV surveillance powered by YOLOv8 and Qwen3-VL for real-time threat detection and automated alerts." />
+    <meta name="theme-color" content="#10131c" />
+    <title>Suraksha AI — Intelligent Surveillance</title>
+
+    <!-- Preconnect for faster font load -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
+    <!-- Stitch Font and Tailwind Dependencies -->
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Inter:wght@300;400;500;600&amp;display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+    
+    <script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "secondary": "#bdc2ff",
+              "on-primary-fixed-variant": "#004e5f",
+              "primary-fixed": "#b4ebff",
+              "error-container": "#93000a",
+              "on-tertiary-fixed": "#23005c",
+              "surface-dim": "#10131c",
+              "primary-container": "#00d4ff",
+              "on-secondary-container": "#a8afff",
+              "inverse-surface": "#e0e2ee",
+              "on-primary-container": "#00586b",
+              "on-surface": "#e0e2ee",
+              "primary-fixed-dim": "#3cd7ff",
+              "tertiary": "#e6d9ff",
+              "surface": "#10131c",
+              "on-background": "#e0e2ee",
+              "surface-tint": "#3cd7ff",
+              "tertiary-fixed-dim": "#d0bcff",
+              "tertiary-fixed": "#e9ddff",
+              "outline": "#859398",
+              "on-secondary-fixed": "#000767",
+              "error": "#ffb4ab",
+              "surface-container-low": "#181c24",
+              "background": "#10131c",
+              "on-secondary": "#1b247f",
+              "on-tertiary": "#3c0091",
+              "on-error": "#690005",
+              "on-tertiary-fixed-variant": "#5516be",
+              "inverse-on-surface": "#2d303a",
+              "secondary-container": "#343d96",
+              "surface-container": "#1c2028",
+              "primary": "#a8e8ff",
+              "on-surface-variant": "#bbc9cf",
+              "surface-container-lowest": "#0a0e16",
+              "on-primary-fixed": "#001f27",
+              "surface-variant": "#31353e",
+              "surface-container-high": "#262a33",
+              "tertiary-container": "#cdb8ff",
+              "surface-container-highest": "#31353e",
+              "secondary-fixed-dim": "#bdc2ff",
+              "on-secondary-fixed-variant": "#343d96",
+              "inverse-primary": "#00677e",
+              "surface-bright": "#353943",
+              "on-error-container": "#ffdad6",
+              "secondary-fixed": "#e0e0ff",
+              "on-primary": "#003642",
+              "outline-variant": "#3c494e",
+              "on-tertiary-container": "#5f27c8"
+            },
+            fontFamily: {
+              "headline": ["Space Grotesk"],
+              "body": ["Inter"],
+              "label": ["Inter"]
+            },
+            borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+          },
+        },
+      }
+    </script>
   </head>
-  <body>
+  <body class="bg-surface-container-lowest font-body text-on-surface overflow-x-hidden min-h-screen">
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>

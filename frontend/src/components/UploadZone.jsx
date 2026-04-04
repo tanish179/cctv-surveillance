@@ -1,4 +1,5 @@
 import { useRef, useState } from "react"
+import { motion } from "framer-motion"
 
 export default function UploadZone({ onUpload, processing, progress, status }) {
   const inputRef = useRef()
@@ -9,12 +10,11 @@ export default function UploadZone({ onUpload, processing, progress, status }) {
   }
 
   return (
-    <div style={{
-      background: "#111827",
-      border: `2px dashed ${dragging ? "#3b82f6" : "#374151"}`,
-      borderRadius: 12, padding: 24,
-      textAlign: "center", transition: "all 0.2s"
-    }}
+    <motion.section
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.6, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
+      className={`glass-panel rounded-xl p-8 border-dashed border-2 flex flex-col items-center text-center group transition-all relative ${dragging ? 'border-primary/80' : 'border-primary/20 hover:border-primary/50'}`}
       onDragOver={(e) => { e.preventDefault(); setDragging(true) }}
       onDragLeave={() => setDragging(false)}
       onDrop={(e) => { e.preventDefault(); setDragging(false); handleFile(e.dataTransfer.files[0]) }}
@@ -24,41 +24,39 @@ export default function UploadZone({ onUpload, processing, progress, status }) {
 
       {!processing ? (
         <>
-          <div style={{ fontSize: 36, marginBottom: 12 }}>🎬</div>
-          <div style={{ fontSize: 13, color: "#9ca3af", marginBottom: 16 }}>
-            Drag & drop CCTV footage or
+          <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-6 transition-transform group-hover:-translate-y-1">
+            <span className="material-symbols-outlined text-primary text-3xl">videocam</span>
           </div>
-          <button onClick={() => inputRef.current.click()} style={{
-            background: "#3b82f6", color: "#fff",
-            border: "none", borderRadius: 8,
-            padding: "10px 24px", fontSize: 13,
-            cursor: "pointer", fontFamily: "inherit",
-            fontWeight: "bold", letterSpacing: 1
-          }}>
+          <h3 className="font-headline font-bold text-lg mb-2 text-on-surface">Feed Ingestion</h3>
+          <p className="text-outline text-xs mb-8">Drag and drop CCTV footage for real-time AI analysis.</p>
+          <button 
+            onClick={() => inputRef.current.click()} 
+            className="w-full py-4 bg-gradient-to-br from-primary to-primary-container text-on-primary-container font-headline font-bold text-xs tracking-widest rounded-lg shadow-[0_0_20px_rgba(0,212,255,0.2)] hover:shadow-[0_0_30px_rgba(0,212,255,0.4)] transition-all uppercase"
+          >
             SELECT VIDEO
           </button>
         </>
       ) : (
         <>
-          <div style={{ fontSize: 12, color: "#9ca3af", marginBottom: 12 }}>
-            {status || "Analyzing..."}
+          <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-6 animate-pulse">
+            <span className="material-symbols-outlined text-primary text-3xl">memory</span>
           </div>
-          <div style={{
-            background: "#1f2937", borderRadius: 8,
-            height: 8, overflow: "hidden"
-          }}>
-            <div style={{
-              height: "100%", borderRadius: 8,
-              background: "linear-gradient(90deg, #3b82f6, #8b5cf6)",
-              width: `${progress}%`,
-              transition: "width 0.5s ease"
-            }}/>
+          <div className="font-headline text-xs text-primary font-bold mb-4 tracking-widest uppercase">
+            {status || "ANALYZING FOOTAGE..."}
           </div>
-          <div style={{ fontSize: 12, color: "#6b7280", marginTop: 8 }}>
-            {progress}% complete
+          <div className="w-full h-2 bg-white/5 rounded-full overflow-hidden relative mb-2">
+            <motion.div 
+              className="absolute top-0 left-0 h-full bg-gradient-to-r from-primary to-primary-container"
+              initial={{ width: 0 }}
+              animate={{ width: `${progress}%` }}
+              transition={{ ease: "linear" }}
+            />
+          </div>
+          <div className="font-mono text-[10px] text-outline tracking-wider">
+            {progress}% COMPLETE
           </div>
         </>
       )}
-    </div>
+    </motion.section>
   )
 }

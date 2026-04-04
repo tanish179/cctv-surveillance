@@ -27,7 +27,8 @@ app.add_middleware(CORSMiddleware,
 
 model = YOLO("yolov8n.pt")
 
-SUSPICIOUS_CLASSES = ["knife", "scissors", "person", "bottle", "bat"]
+SUSPICIOUS_CLASSES = ["knife", "scissors", "person", "bottle", "bat",
+                      "car", "truck", "motorcycle", "bicycle"]
 CONFIDENCE_THRESHOLD = 0.35
 
 # ── Helpers ────────────────────────────────
@@ -35,20 +36,50 @@ def frame_to_base64(frame) -> str:
     _, buffer = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 70])
     return base64.b64encode(buffer).decode("utf-8")
 
+
+
+def classify_emergency(detected_objects):
+    """Classify the type of emergency based on detections."""
+    labels = [d["label"] for d in detected_objects]
+    
+    if any(l in ["knife", "scissors"] for l in labels) or "person" in labels:
+        return "CRIME"
+    
+    return None
+
+# ── WhatsApp alert messages per type ───────
+WHATSAPP_TEMPLATES = {
+    "CRIME": {
+        "icon": "🚨",
+        "title": "CRIME ALERT",
+        "number_env": "POLICE_NUMBER"
+    }
+}
+
 def send_whatsapp(analysis: dict):
     from twilio.rest import Client
     from datetime import datetime
+    
+    emergency_type = analysis.get("emergency_type", "CRIME")
+    template = WHATSAPP_TEMPLATES.get(emergency_type, WHATSAPP_TEMPLATES["CRIME"])
+    
     client = Client(os.getenv("TWILIO_SID"), os.getenv("TWILIO_TOKEN"))
     timestamp = datetime.now().strftime("%d/%m/%Y • %I:%M:%S %p")
+    
+    # Get the correct number for this emergency type
+    to_number = os.getenv(template["number_env"]) or os.getenv("POLICE_NUMBER")
+    
+    action_text = analysis.get('recommended_action', 'emergency_response').replace('_', ' ').upper()
+    
     client.messages.create(
         from_="whatsapp:+14155238886",
-        to=f"whatsapp:{os.getenv('POLICE_NUMBER')}",
-        body=f"""🚨 *SURAKSHA AI — EMERGENCY ALERT* 🚨
+        to=f"whatsapp:{to_number}",
+        body=f"""{template['icon']} *SURAKSHA AI — {template['title']}* {template['icon']}
 
 🔴 *Threat Level:* {analysis['threat_tag']} ({analysis['threat_level']}/10)
 📋 *Incident:* {analysis['activity']}
-🔪 *Threat:* {analysis['detected_threat']}
-⚡ *Action:* {analysis['recommended_action'].replace('_', ' ').upper()}
+⚠️ *Threat:* {analysis['detected_threat']}
+⚡ *Action:* {action_text}
 
 🕐 *Time:* {timestamp}
 📍 *Location:* ____________________
@@ -89,7 +120,10 @@ async def _process_video_task(temp_path: str):
                 frame_count += 1
                 continue
 
-            # ── YOLO Detection ──
+            detected_objects = []
+            emergency_type = None
+
+            # ── STEP 1: YOLO Detection ──
             results = model(
                 frame,
                 imgsz=320,
@@ -97,9 +131,6 @@ async def _process_video_task(temp_path: str):
                 verbose=False,
                 device="cpu"
             )
-
-            detected_objects = []
-            person_detected = False
 
             for r in results:
                 for box in r.boxes:
@@ -110,26 +141,29 @@ async def _process_video_task(temp_path: str):
                             "label": label,
                             "confidence": round(conf * 100, 1)
                         })
-                    if label == "person":
-                        person_detected = True
+                        print(f"🎯 Suspect Object Detected! Type: {label.upper()} | Confidence: {round(conf * 100, 1)}%")
 
-            # Only send to Qwen if something suspicious found
-            if not detected_objects:
+            # ── STEP 2: Classify emergency type ──
+            emergency_type = classify_emergency(detected_objects)
+
+            # Skip if no emergency detected
+            if not emergency_type or not detected_objects:
                 frame_count += 1
                 continue
 
-            # ── Qwen Analysis via OpenRouter ──
-            await sio.emit("status", {"message": f"Analyzing threat (frame {frame_count})..."})
+            # ── STEP 4: Qwen Analysis with type-specific prompt ──
+            await sio.emit("status", {"message": f"Analyzing {emergency_type.lower()} threat (frame {frame_count})..."})
             frame_b64 = frame_to_base64(frame)
 
-            # Run the blocking API call in a thread so we don't block the event loop
+            # Run the blocking API call in a thread
             loop = asyncio.get_event_loop()
-            analysis = await loop.run_in_executor(None, analyze_frame, frame_b64)
+            analysis = await loop.run_in_executor(None, analyze_frame, frame_b64, emergency_type)
 
-            # Build incident object
+            # ── STEP 5: Build incident object with emergency_type ──
             incident = {
                 "id": len(incidents) + 1,
                 "timestamp": time.strftime("%H:%M:%S"),
+                "emergency_type": emergency_type,
                 "frame_b64": frame_b64,
                 "detected_objects": detected_objects,
                 "activity": analysis["activity"],
@@ -147,17 +181,31 @@ async def _process_video_task(temp_path: str):
 
             # Push to frontend LIVE
             await sio.emit("incident", incident)
-            print(f"✅ Incident #{incident['id']}: {incident['threat_tag']} — {incident['activity']}")
+            type_icons = {"CRIME": "🚨"}
+            print(f"✅ Incident #{incident['id']}: {type_icons.get(emergency_type, '⚠️')} {emergency_type} | {incident['threat_tag']} — {incident['activity']}")
 
-            # ── INSTANT WhatsApp alert if threat >= 6 ──
-            if not whatsapp_sent and analysis["threat_level"] >= 6:
-                try:
-                    send_whatsapp(incident)
-                    whatsapp_sent = True
-                    print(f"📱 WhatsApp SENT immediately! Threat: {analysis['threat_tag']} ({analysis['threat_level']}/10)")
-                    await sio.emit("status", {"message": "🚨 POLICE ALERTED VIA WHATSAPP!"})
-                except Exception as e:
-                    print(f"WhatsApp error: {e}")
+            # ── EARLY WARNING: Alert after first 5 frames confirm threat ──
+            if not whatsapp_sent:
+                high_threat_count = sum(1 for inc in incidents if inc["threat_level"] >= 6)
+
+                should_alert = False
+
+                if analysis["threat_level"] >= 9:
+                    should_alert = True
+                    print(f"⚡ CRITICAL {emergency_type} detected — sending alert immediately!")
+                elif len(incidents) >= 5 and high_threat_count >= 3:
+                    should_alert = True
+                    print(f"⚡ {high_threat_count}/{len(incidents)} frames show high threat — confirmed!")
+
+                if should_alert:
+                    try:
+                        send_whatsapp(highest_threat)
+                        whatsapp_sent = True
+                        alert_type = highest_threat.get("emergency_type", "CRIME")
+                        print(f"📱 WhatsApp SENT! {alert_type}: {highest_threat['threat_tag']} ({highest_threat['threat_level']}/10)")
+                        await sio.emit("status", {"message": f"🚨 {alert_type} ALERT SENT VIA WHATSAPP!"})
+                    except Exception as e:
+                        print(f"WhatsApp error: {e}")
 
             # Small delay so frontend can render
             await asyncio.sleep(0.3)
@@ -207,6 +255,7 @@ async def simulate_threat():
     fake = {
         "id": 999,
         "timestamp": time.strftime("%H:%M:%S"),
+        "emergency_type": "CRIME",
         "frame_b64": "",
         "detected_objects": [{"label": "knife", "confidence": 87.3}],
         "activity": "Person holding sharp object threatening another individual near entrance gate",

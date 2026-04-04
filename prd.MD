@@ -904,3 +904,5 @@ async def simulate_threat():
     return {"ok": True}
 ```
 
+command to run -cd backend
+uvicorn main:combined_app --reload --port 8000
